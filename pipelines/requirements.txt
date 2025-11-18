@@ -1,0 +1,19 @@
+# Vertex AI Pipelines Dependencies
+google-cloud-aiplatform>=1.38.0
+kfp>=2.4.0
+google-cloud-storage>=2.10.0
+
+# Data Processing
+transformers>=4.35.0
+datasets>=2.14.0
+torch>=2.1.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Tokenization
+tokenizers>=0.15.0
+sentencepiece>=0.1.99
+
+# Utilities
+pyarrow>=12.0.0
+tqdm>=4.65.0

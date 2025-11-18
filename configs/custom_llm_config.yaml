@@ -1,0 +1,276 @@
+# Enhanced Model Configuration for Custom LLM Development
+project_id: "your-gcp-project-id"
+region: "us-central1"
+bucket_name: "your-llm-mlops-bucket"
+
+# Custom LLM Model Configuration
+model:
+  name: "custom-llm"
+  version: "v1.0"
+  architecture: "custom_transformer"
+  
+  # Model Architecture
+  vocab_size: 65536  # Custom tokenizer vocab size
+  max_length: 4096   # Long context support
+  num_layers: 24     # Deeper model for better performance
+  num_heads: 16      # More attention heads
+  hidden_size: 1024  # Larger hidden size
+  intermediate_size: 4096  # 4x hidden size (standard)
+  num_key_value_heads: 4   # Grouped Query Attention (reduces memory)
+  
+  # Modern Architecture Features
+  use_flash_attention: true    # Memory-efficient attention
+  use_rope: true              # Rotary Position Embedding
+  use_gqa: true               # Grouped Query Attention
+  use_swiglu: true            # SwiGLU activation function
+  use_rms_norm: true          # RMS Layer Normalization
+  parallel_residual: false    # Standard residual connections
+  tie_word_embeddings: false  # Separate input/output embeddings
+  
+  # RoPE Configuration
+  rope_theta: 10000.0
+  rope_scaling: null
+  
+  # Dropout and Regularization
+  attention_dropout: 0.0
+  hidden_dropout: 0.1
+  layer_norm_eps: 1e-6
+
+# Training Configuration for Custom LLM
+training:
+  # Batch Configuration
+  batch_size: 1  # Start small, increase with gradient accumulation
+  gradient_accumulation_steps: 64  # Effective batch size = 64
+  per_device_eval_batch_size: 1
+  
+  # Learning Rate and Optimization
+  learning_rate: 1e-4  # Lower LR for larger models
+  weight_decay: 0.1
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  adam_epsilon: 1e-8
+  max_grad_norm: 1.0
+  
+  # Training Schedule
+  num_epochs: 1  # For large datasets, often 1 epoch is enough
+  max_steps: 100000  # Define by steps instead of epochs
+  warmup_steps: 2000  # 2% of max_steps
+  lr_scheduler_type: "cosine"
+  
+  # Checkpointing and Logging
+  save_steps: 1000
+  eval_steps: 1000
+  logging_steps: 100
+  save_total_limit: 3
+  load_best_model_at_end: false  # For large models, often not practical
+  
+  # Memory Optimization
+  fp16: false  # Use bf16 instead for stability
+  bf16: true   # Better for training stability
+  gradient_checkpointing: true  # Reduce memory usage
+  dataloader_num_workers: 4
+  remove_unused_columns: false
+  
+  # Advanced Training Features
+  deepspeed_config: "configs/deepspeed_config.json"  # For multi-GPU training
+  fsdp: null  # Fully Sharded Data Parallel (alternative to DeepSpeed)
+
+# Data Configuration for LLM Training
+data:
+  # Training Data
+  train_file: "gs://your-bucket/data/train.jsonl"
+  validation_file: "gs://your-bucket/data/validation.jsonl"
+  test_file: "gs://your-bucket/data/test.jsonl"
+  
+  # Data Processing
+  max_train_samples: null  # Use all available data
+  max_eval_samples: 10000  # Limit eval for speed
+  preprocessing_num_workers: 8
+  
+  # Tokenization
+  tokenizer_name: "custom"  # Will use custom tokenizer
+  max_seq_length: 4096
+  block_size: 4096  # For causal language modeling
+  
+  # Data Quality
+  min_text_length: 50  # Filter out very short texts
+  max_text_length: 10000  # Filter out very long texts
+  deduplication: true  # Remove duplicate examples
+
+# Enhanced Vertex AI Configuration
+vertex_ai:
+  # Training Job Configuration
+  custom_job:
+    display_name: "custom-llm-training"
+    # Use high-memory, multi-GPU machines
+    machine_type: "a2-highgpu-4g"  # 4x NVIDIA A100 GPUs
+    accelerator_type: "NVIDIA_TESLA_A100"
+    accelerator_count: 4
+    boot_disk_size_gb: 200
+    boot_disk_type: "pd-ssd"
+    
+    # Service Account
+    service_account: "vertex-ai-service-account@your-project.iam.gserviceaccount.com"
+    
+    # Network Configuration
+    network: "projects/your-project/global/networks/default"
+    
+    # Environment Variables
+    env_vars:
+      WANDB_PROJECT: "custom-llm"
+      TOKENIZERS_PARALLELISM: "false"
+      HF_HOME: "/tmp/huggingface"
+  
+  # Model Registry
+  model_registry:
+    display_name: "custom-llm-model"
+    description: "Custom LLM trained from scratch"
+    version_aliases: ["latest", "v1"]
+    labels:
+      model_type: "causal_lm"
+      training_framework: "pytorch"
+      custom_architecture: "true"
+
+# Deployment Configuration
+deployment:
+  # Cloud Run Configuration
+  cloud_run:
+    service_name: "custom-llm-api"
+    memory: "16Gi"  # Large memory for model inference
+    cpu: "8"
+    max_instances: 10
+    min_instances: 1
+    concurrency: 4  # Lower concurrency for large models
+    timeout: "600s"  # Longer timeout for generation
+    
+    # Environment Variables
+    env_vars:
+      MODEL_PATH: "gs://your-bucket/models/custom-llm"
+      MAX_BATCH_SIZE: "4"
+      USE_CUDA: "true"
+  
+  # Vertex AI Endpoint Configuration
+  vertex_endpoint:
+    display_name: "custom-llm-endpoint"
+    # Use GPU machines for inference
+    machine_type: "n1-standard-8"
+    accelerator_type: "NVIDIA_TESLA_T4"
+    accelerator_count: 1
+    min_replica_count: 1
+    max_replica_count: 5
+    
+    # Traffic Configuration
+    traffic_split:
+      - deployed_model_id: "model-v1"
+        traffic_percentage: 100
+    
+    # Prediction Configuration
+    prediction_config:
+      instance_type: "text_generation"
+      max_sequence_length: 4096
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 40
+
+# Monitoring and Observability
+monitoring:
+  # Model Performance Monitoring
+  model_monitoring:
+    enabled: true
+    sampling_rate: 0.1
+    drift_threshold: 0.05
+    prediction_drift_detection: true
+    training_serving_skew_detection: true
+    
+    # Alert Configuration
+    alert_config:
+      email_alert_config:
+        user_emails: ["admin@your-company.com"]
+      slack_webhook: "your-slack-webhook-url"
+  
+  # Logging Configuration
+  logging:
+    level: "INFO"
+    format: "json"
+    enable_cloud_logging: true
+    structured_logging: true
+    
+    # Log Sampling
+    sampling_rate: 1.0
+    
+  # Custom Metrics
+  custom_metrics:
+    - name: "tokens_per_second"
+      description: "Token generation rate"
+      type: "gauge"
+      unit: "tokens/s"
+    
+    - name: "model_memory_usage"
+      description: "Model memory consumption"
+      type: "gauge"
+      unit: "GB"
+    
+    - name: "inference_latency_p99"
+      description: "99th percentile inference latency"
+      type: "histogram"
+      unit: "seconds"
+
+# Experiment Tracking
+experiment_tracking:
+  # Weights & Biases
+  wandb:
+    enabled: true
+    project: "custom-llm-development"
+    entity: "your-wandb-entity"
+    tags: ["custom-llm", "vertex-ai", "production"]
+    
+    # Logging Configuration
+    log_model: true
+    log_code: true
+    log_gradients: false  # Can be expensive for large models
+    log_parameters: true
+    
+  # MLflow
+  mlflow:
+    enabled: true
+    tracking_uri: "your-mlflow-server"
+    experiment_name: "custom-llm-experiments"
+    
+    # Model Registry
+    register_model: true
+    model_name: "custom-llm"
+    
+# Cost Optimization
+cost_optimization:
+  # Preemptible Instances
+  use_preemptible: false  # Set to true for cost savings (with risk)
+  
+  # Auto-scaling
+  enable_autoscaling: true
+  scale_down_delay: "10m"
+  
+  # Resource Quotas
+  max_training_time: "24h"
+  max_inference_instances: 10
+  
+  # Budget Alerts
+  budget_alert_threshold: 1000  # USD
+  
+# Security Configuration
+security:
+  # Network Security
+  vpc_network: "projects/your-project/global/networks/default"
+  subnet: "projects/your-project/regions/us-central1/subnetworks/default"
+  
+  # IAM Configuration
+  service_accounts:
+    training: "custom-llm-training@your-project.iam.gserviceaccount.com"
+    inference: "custom-llm-inference@your-project.iam.gserviceaccount.com"
+  
+  # Data Security
+  encryption_at_rest: true
+  encryption_in_transit: true
+  
+  # Access Control
+  private_endpoints: false  # Set to true for production
+  authorized_networks: []  # Add your IP ranges

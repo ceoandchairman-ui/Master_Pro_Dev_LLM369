@@ -1,0 +1,8 @@
+# Core dependencies for streaming data ingestion with HF authentication
+datasets==2.14.7
+google-cloud-storage==2.10.0
+huggingface-hub==0.19.4
+pyarrow>=12.0.0
+pandas>=2.0.0
+requests>=2.31.0
+transformers>=4.35.0
