@@ -1,0 +1,11 @@
+name: custom-llm-training-build
+description: Builds Docker image for LLM training
+filename: deployment/training/Dockerfile
+github:
+  owner: ceoandchairman-ui
+  name: Master_Pro_Dev_LLM369
+  push:
+    branch: ^feature/pushing_training_code$
+images:
+  - gcr.io/newllm369-478400/custom-llm-training:latest
+timeout: 3600s
