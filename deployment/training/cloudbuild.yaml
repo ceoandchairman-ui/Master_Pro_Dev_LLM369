@@ -1,0 +1,19 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/newllm369-478400/custom-llm-training:$SHORT_SHA'
+      - '-f'
+      - 'Dockerfile'
+      - '.'
+    timeout: '3600s'
+
+images:
+  - 'gcr.io/newllm369-478400/custom-llm-training:$SHORT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+timeout: '3600s'
