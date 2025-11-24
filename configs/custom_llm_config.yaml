@@ -1,7 +1,7 @@
 # Enhanced Model Configuration for Custom LLM Development
-project_id: "your-gcp-project-id"
+project_id: "newllm369-478400"
 region: "us-central1"
-bucket_name: "your-llm-mlops-bucket"
+bucket_name: "newllm369-478400-llm-data"
 
 # Custom LLM Model Configuration
 model:
@@ -10,8 +10,8 @@ model:
   architecture: "custom_transformer"
   
   # Model Architecture
-  vocab_size: 65536  # Custom tokenizer vocab size
-  max_length: 4096   # Long context support
+  vocab_size: 50257  # DialoGPT-medium tokenizer (FIXED to match preprocessing)
+  max_length: 2048   # Optimized for L4 GPUs
   num_layers: 24     # Deeper model for better performance
   num_heads: 16      # More attention heads
   hidden_size: 1024  # Larger hidden size
@@ -78,9 +78,9 @@ training:
 # Data Configuration for LLM Training
 data:
   # Training Data
-  train_file: "gs://your-bucket/data/train.jsonl"
-  validation_file: "gs://your-bucket/data/validation.jsonl"
-  test_file: "gs://your-bucket/data/test.jsonl"
+  train_file: "gs://newllm369-478400-llm-data/processed_data/openhermes-2.5/train_data.jsonl"
+  validation_file: "gs://newllm369-478400-llm-data/processed_data/openhermes-2.5/val_data.jsonl"
+  test_file: "gs://newllm369-478400-llm-data/processed_data/openhermes-2.5/test_data.jsonl"
   
   # Data Processing
   max_train_samples: null  # Use all available data
@@ -88,9 +88,9 @@ data:
   preprocessing_num_workers: 8
   
   # Tokenization
-  tokenizer_name: "custom"  # Will use custom tokenizer
-  max_seq_length: 4096
-  block_size: 4096  # For causal language modeling
+  tokenizer_name: "microsoft/DialoGPT-medium"  # Match preprocessing tokenizer
+  max_seq_length: 2048  # Optimized for L4 GPUs
+  block_size: 2048  # For causal language modeling
   
   # Data Quality
   min_text_length: 50  # Filter out very short texts
@@ -102,10 +102,11 @@ vertex_ai:
   # Training Job Configuration
   custom_job:
     display_name: "custom-llm-training"
-    # Use high-memory, multi-GPU machines
-    machine_type: "a2-highgpu-4g"  # 4x NVIDIA A100 GPUs
-    accelerator_type: "NVIDIA_TESLA_A100"
+    # Use 4×L4 GPUs for cost-effective training
+    machine_type: "g2-standard-48"  # 4x NVIDIA L4 24GB GPUs
+    accelerator_type: "NVIDIA_L4"
     accelerator_count: 4
+    use_spot: false  # Standard instance for stability
     boot_disk_size_gb: 200
     boot_disk_type: "pd-ssd"
     
@@ -167,7 +168,7 @@ deployment:
     # Prediction Configuration
     prediction_config:
       instance_type: "text_generation"
-      max_sequence_length: 4096
+      max_sequence_length: 2048
       temperature: 0.7
       top_p: 0.9
       top_k: 40
