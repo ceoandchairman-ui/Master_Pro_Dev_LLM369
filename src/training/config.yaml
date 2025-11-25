@@ -1,0 +1,8 @@
+workerPoolSpecs:
+  - machineSpec:
+      machineType: g2-standard-12
+      acceleratorType: NVIDIA_L4
+      acceleratorCount: 1
+    replicaCount: 1
+    containerSpec:
+      imageUri: gcr.io/newllm369-478400/custom-llm-training@sha256:81d777f526f15f3650da555de6a5c2c6b6c79739d8ca9698a63d59ec374fa7a0
