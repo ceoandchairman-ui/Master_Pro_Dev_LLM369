@@ -10,20 +10,12 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 from datetime import datetime
-from dotenv import load_dotenv
 
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from google.cloud import storage
-
-# Load environment variables
-load_dotenv()
-
-# Logging integrations
-import wandb
-import mlflow
 
 # Import custom model
 from src.models.custom_llm_model import CustomLLMModel, CustomLLMConfig
@@ -98,21 +90,8 @@ def download_checkpoint(bucket_name, checkpoint_name, local_dir):
     return local_path
 
 def upload_to_gcs(local_dir: str, gcs_path: str):
-    """Upload directory to GCS recursively"""
-    client = storage.Client()
-    parts = gcs_path.replace("gs://", "").split("/", 1)
-    bucket_name = parts[0]
-    prefix = parts[1] if len(parts) > 1 else ""
-    bucket = client.bucket(bucket_name)
-    
-    for root, dirs, files in os.walk(local_dir):
-        for file in files:
-            local_file = os.path.join(root, file)
-            relative_path = os.path.relpath(local_file, local_dir)
-            blob_name = os.path.join(prefix, relative_path).replace("\\", "/")
-            blob = bucket.blob(blob_name)
-            blob.upload_from_filename(local_file)
-            logger.info(f"Uploaded {local_file} to gs://{bucket_name}/{blob_name}")
+    logger.info(f"Would upload {local_dir} to {gcs_path}")
+    # Implement actual upload logic as needed
 
 def train(model, train_dataloader, val_dataloader, optimizer, config, start_step=0):
     training_config = config['training']
@@ -121,18 +100,7 @@ def train(model, train_dataloader, val_dataloader, optimizer, config, start_step
     logging_steps = training_config['logging_steps']
     save_steps = training_config['save_steps']
     eval_steps = training_config['eval_steps']
-    
-    # Initialize all logging platforms
-    gcs_tensorboard_path = f"gs://{config['bucket_name']}/tensorboard_logs/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    writer = SummaryWriter(gcs_tensorboard_path)
-    
-    # W&B initialization
-    wandb.init(project="llm-training", config=config, resume="allow")
-    
-    # MLflow initialization
-    mlflow.start_run()
-    mlflow.log_params(training_config)
-    
+    writer = SummaryWriter(f"/tmp/tensorboard_logs/{datetime.now().strftime('%Y%m%d-%H%M%S')}")
     output_dir = "/tmp/checkpoints"
     os.makedirs(output_dir, exist_ok=True)
     global_step = start_step
@@ -159,21 +127,11 @@ def train(model, train_dataloader, val_dataloader, optimizer, config, start_step
                 avg_loss = total_loss / logging_steps
                 logger.info(f"Step {global_step}/{max_steps} | Loss: {avg_loss:.4f}")
                 writer.add_scalar('train/loss', avg_loss, global_step)
-                
-                # Log to all platforms
-                wandb.log({"train_loss": avg_loss, "step": global_step})
-                mlflow.log_metric("train_loss", avg_loss, step=global_step)
-                
                 total_loss = 0
             if global_step % eval_steps == 0:
                 val_loss = evaluate(model, val_dataloader, device)
                 logger.info(f"Validation Loss: {val_loss:.4f}")
                 writer.add_scalar('val/loss', val_loss, global_step)
-                
-                # Log to all platforms
-                wandb.log({"val_loss": val_loss, "step": global_step})
-                mlflow.log_metric("val_loss", val_loss, step=global_step)
-                
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
             if global_step % save_steps == 0:
@@ -182,8 +140,6 @@ def train(model, train_dataloader, val_dataloader, optimizer, config, start_step
                 torch.save(model.state_dict(), f"{checkpoint_dir}/model.pt")
                 upload_to_gcs(checkpoint_dir, f"gs://{config['bucket_name']}/checkpoints/checkpoint-{global_step}")
     writer.close()
-    wandb.finish()
-    mlflow.end_run()
     logger.info("Training completed!")
     torch.save(model.state_dict(), f"{output_dir}/final_model.pt")
     upload_to_gcs(output_dir, f"gs://{config['bucket_name']}/checkpoints/final_model")
